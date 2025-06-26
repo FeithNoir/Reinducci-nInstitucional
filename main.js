@@ -1,11 +1,12 @@
 document.addEventListener("DOMContentLoaded", () => {
   const sidebarLinks = document.getElementById("sidebar-links");
   const contentDisplay = document.getElementById("content-display");
-  const searchInput = document.getElementById("search-input");
-  const searchButton = document.getElementById("search-button");
   const themeToggle = document.getElementById("theme-toggle");
   const themeToggleDarkIcon = document.getElementById("theme-toggle-dark-icon");
   const themeToggleLightIcon = document.getElementById("theme-toggle-light-icon");
+  const menuToggle = document.getElementById("menu-toggle");
+  const sidebar = document.getElementById("sidebar");
+  const sidebarOverlay = document.getElementById("sidebar-overlay");
 
   let data = {
     "sections": [
@@ -524,6 +525,11 @@ document.addEventListener("DOMContentLoaded", () => {
   populateSidebar(data.sections);
   if (data.sections.length > 0) {
     showSection(data.sections[0]);
+    // Marcar el primer elemento como activo
+    const firstLink = sidebarLinks.querySelector("a");
+    if (firstLink) {
+      firstLink.classList.add("active");
+    }
   }
 
   // Poblar el sidebar
@@ -534,8 +540,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const a = document.createElement("a");
       a.href = "#";
       a.textContent = section.title;
-      a.classList.add( "block", "p-2", "rounded-md", "hover:bg-gray-200", "dark:hover:bg-gray-700" );
-      a.addEventListener("click", (e) => { e.preventDefault(); showSection(section); });
+      a.classList.add("block", "p-2", "rounded-md", "hover:bg-secondary-color", "dark:hover:bg-light-color");
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        showSection(section);
+        const links = sidebarLinks.querySelectorAll("a");
+        links.forEach(link => link.classList.remove("active"));
+        a.classList.add("active");
+        sidebar.classList.remove("open");
+        sidebarOverlay.classList.remove("open");
+      });
       li.appendChild(a);
       sidebarLinks.appendChild(li);
     });
@@ -546,157 +560,118 @@ document.addEventListener("DOMContentLoaded", () => {
     contentDisplay.innerHTML = "";
     const title = document.createElement("h2");
     title.textContent = section.title;
-    title.classList.add("text-2xl", "font-bold", "text-blue-700");
+    title.classList.add("text-2xl", "font-bold", "text-primary-color");
     contentDisplay.appendChild(title);
-
     const contentDiv = document.createElement("div");
     contentDiv.classList.add("flex", "flex-col", "gap-2");
     contentDiv.innerHTML = formatContent(section.content);
     contentDisplay.appendChild(contentDiv);
   }
 
-  // Formatear el contenido para mostrarlo
+  // Función para crear elementos HTML
+  function createElement(tag, content, classes = [], attributes = {}) {
+    const element = document.createElement(tag);
+    if (content) element.innerHTML = content;
+    if (classes.length > 0) element.classList.add(...classes);
+    for (const [key, value] of Object.entries(attributes)) {
+      element.setAttribute(key, value);
+    }
+    return element;
+  }
+
+  // Función para formatear listas
+  function formatList(items, listClass = "list-disc", itemClass = "") {
+    const ul = createElement("ul", "", [listClass]);
+    items.forEach(item => {
+      const li = createElement("li", item, [itemClass]);
+      ul.appendChild(li);
+    });
+    return ul.outerHTML;
+  }
+
+  // Función para formatear tablas
+  function formatTable(headers, rows) {
+    const table = createElement("table", "", ["min-w-full", "table-auto", "border", "border-secondary-color", "dark:border-light-color"]);
+    const thead = createElement("thead", "", ["bg-accent-color", "text-text-light-color"]);
+    const headerRow = createElement("tr");
+
+    headers.forEach(header => {
+      const th = createElement("th", header, ["border", "px-4", "py-2", "text-left"]);
+      headerRow.appendChild(th);
+    });
+
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = createElement("tbody");
+
+    rows.forEach(row => {
+      const tr = createElement("tr");
+      Object.values(row).forEach(value => {
+        const td = createElement("td", value, ["border", "px-4", "py-2"]);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    return table.outerHTML;
+  }
+
+  // Función para formatear objetos
+  function formatObject(obj, depth = 0) {
+    let html = "";
+    for (const [key, value] of Object.entries(obj)) {
+      const headerTag = depth === 0 ? "h3" : depth === 1 ? "h4" : "h5";
+      const headerClasses = depth === 0 ? ["font-bold", "text-primary-color", "text-lg", "mt-4"]
+        : depth === 1 ? ["font-semibold", "text-primary-color", "mt-2"]
+        : ["font-medium", "text-primary-color", "mt-1"];
+      const header = createElement(headerTag, key.charAt(0).toUpperCase() + key.slice(1).replaceAll("_", " "), headerClasses).outerHTML;
+
+      if (Array.isArray(value)) {
+        html += header + formatList(value, "list-disc", "pl-6");
+      } else if (typeof value === "object" && value !== null) {
+        html += header + formatObject(value, depth + 1);
+      } else {
+        html += header + createElement("p", value, ["pl-6"]).outerHTML;
+      }
+    }
+    return html;
+  }
+
+  // Función principal para formatear el contenido
   function formatContent(content) {
     if (typeof content === "string") {
-      return `<p>${content}</p>`;
+      return createElement("p", content).outerHTML;
     } else if (Array.isArray(content)) {
-      return content.map((item) => `<p>${item}</p>`).join("");
+      return content.map(item => createElement("p", item).outerHTML).join("");
     } else if (typeof content === "object" && content !== null) {
       let html = "";
+      for (const [key, value] of Object.entries(content)) {
+        const header = createElement("h3", key.charAt(0).toUpperCase() + key.slice(1).replaceAll("_", " "), ["font-bold", "text-primary-color", "text-lg", "mt-4"]).outerHTML;
 
-      for (const key in content) {
-        const value = content[key];
-
-        html += `<h3 class="font-bold text-blue-700 text-lg mt-4">${key.charAt(0).toUpperCase() + key.slice(1).replaceAll("_", " ")}</h3>`;
-
-        switch (key) {
-          case "brigadistas":
-            if (Array.isArray(value)) {
-              html += `
-                <div class="overflow-x-auto">
-                  <table class="min-w-full table-auto border border-gray-300">
-                    <thead class="bg-blue-100 text-blue-800">
-                      <tr>
-                        <th class="border px-4 py-2 text-left">Nombre</th>
-                        <th class="border px-4 py-2 text-left">Área</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${value.map(b => `
-                        <tr>
-                          <td class="border px-4 py-2">${b.nombre}</td>
-                          <td class="border px-4 py-2">${b.area}</td>
-                        </tr>
-                      `).join("")}
-                    </tbody>
-                  </table>
-                </div>
-              `;
-            }
-            break;
-
-          case "gestion_de_emergencias":
-            if (typeof value === "object" && value !== null) {
-              for (const subkey in value) {
-                const subvalue = value[subkey];
-
-                html += `<h4 class="font-semibold text-blue-600 mt-2">${subkey.charAt(0).toUpperCase() + subkey.slice(1).replaceAll("_", " ")}</h4>`;
-
-                switch (subkey) {
-                  case "comite_de_emergencia":
-                    if (typeof subvalue === "object" && subvalue !== null) {
-                      for (const itemKey in subvalue) {
-                        const itemValue = subvalue[itemKey];
-
-                        html += `<h5 class="font-medium text-blue-500 mt-1">${itemKey.charAt(0).toUpperCase() + itemKey.slice(1).replaceAll("_", " ")}</h5>`;
-
-                        if (Array.isArray(itemValue)) {
-                          html += `<ul class="list-disc pl-6">${itemValue.map(name => `<li>${name}</li>`).join("")}</ul>`;
-                        } else {
-                          html += `<p class="pl-6">${itemValue}</p>`;
-                        }
-                      }
-                    }
-                    break;
-
-                  case "brigada_de_emergencia":
-                  case "jefe_de_brigada":
-                    html += `<p class="pl-6">${subvalue}</p>`;
-                    break;
-
-                  default:
-                    html += `<p class="pl-6">${subvalue}</p>`;
-                    break;
-                }
-              }
-            }
-            break;
-
-          default:
-            if (Array.isArray(value)) {
-              html += `<ul class="list-disc pl-6">${value.map((item) => `<li>${item}</li>`).join("")}</ul>`;
-            } else if (typeof value === "object" && value !== null) {
-              for (const subkey in value) {
-                const subvalue = value[subkey];
-                html += `<h4 class="font-semibold text-blue-600 mt-2">${subkey.charAt(0).toUpperCase() + subkey.slice(1).replaceAll("_", " ")}</h4>`;
-
-                if (Array.isArray(subvalue)) {
-                  html += `<ul class="list-disc pl-8">${subvalue.map((item) => `<li>${item}</li>`).join("")}</ul>`;
-                } else {
-                  html += `<p class="pl-6">${subvalue}</p>`;
-                }
-              }
-            } else {
-              html += `<p>${value}</p>`;
-            }
-            break;
+        if (Array.isArray(value) && value.length > 0 && typeof value[0] === "object") {
+          // Si el valor es un array de objetos, formatear como tabla
+          const headers = Object.keys(value[0]);
+          html += header + formatTable(headers.map(h => h.charAt(0).toUpperCase() + h.slice(1)), value);
+        } else if (Array.isArray(value)) {
+          // Si el valor es un array, formatear como lista
+          html += header + formatList(value, "list-disc", "pl-6");
+        } else if (typeof value === "object" && value !== null) {
+          // Si el valor es un objeto, formatear recursivamente
+          html += header + formatObject(value);
+        } else {
+          // Si el valor es una cadena, formatear como párrafo
+          html += header + createElement("p", value, ["pl-6"]).outerHTML;
         }
       }
-
       return html;
     }
-
     return "";
   }
 
-  // Funcionalidad de búsqueda
-  searchButton.addEventListener("click", () => {
-    const searchTerm = searchInput.value.toLowerCase();
-    if (!searchTerm) return;
-
-    const results = [];
-    data.sections.forEach((section) => {
-      const sectionTitle = section.title.toLowerCase();
-      if (sectionTitle.includes(searchTerm)) {
-        results.push(section);
-        return;
-      }
-
-      const contentString = JSON.stringify(section.content).toLowerCase();
-      if (contentString.includes(searchTerm)) {
-        results.push(section);
-      }
-    });
-
-    if (results.length > 0) {
-      contentDisplay.innerHTML = "";
-      results.forEach((section) => {
-        const title = document.createElement("h2");
-        title.textContent = section.title;
-        title.classList.add("text-2xl", "font-bold", "mb-4");
-        contentDisplay.appendChild(title);
-
-        const contentDiv = document.createElement("div");
-        contentDiv.innerHTML = formatContent(section.content);
-        contentDisplay.appendChild(contentDiv);
-      });
-    } else {
-      contentDisplay.innerHTML = "<p>No se encontraron resultados.</p>";
-    }
-  });
 
   // Toggle de tema
-  // On page load or when changing themes, best to add inline in `head` to avoid FOUC
   if (
     localStorage.getItem("color-theme") === "dark" ||
     (!("color-theme" in localStorage) &&
@@ -710,11 +685,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   themeToggle.addEventListener("click", () => {
-    // toggle icons inside button
     themeToggleDarkIcon.classList.toggle("hidden");
     themeToggleLightIcon.classList.toggle("hidden");
-
-    // if set via local storage previously
     if (localStorage.getItem("color-theme")) {
       if (localStorage.getItem("color-theme") === "light") {
         document.documentElement.classList.add("dark");
@@ -723,8 +695,6 @@ document.addEventListener("DOMContentLoaded", () => {
         document.documentElement.classList.remove("dark");
         localStorage.setItem("color-theme", "light");
       }
-
-      // if NOT set via local storage previously
     } else {
       if (document.documentElement.classList.contains("dark")) {
         document.documentElement.classList.remove("dark");
@@ -734,5 +704,17 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.setItem("color-theme", "dark");
       }
     }
+  });
+
+  // Toggle de menú de hamburguesa
+  menuToggle.addEventListener("click", () => {
+    sidebar.classList.toggle("open");
+    sidebarOverlay.classList.toggle("open");
+  });
+
+  // Cerrar el menú de hamburguesa al hacer clic en el overlay
+  sidebarOverlay.addEventListener("click", () => {
+    sidebar.classList.remove("open");
+    sidebarOverlay.classList.remove("open");
   });
 });
