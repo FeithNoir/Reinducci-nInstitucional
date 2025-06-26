@@ -1,0 +1,13 @@
+:root {
+  /* Define tu color secundario aquí. Usaré un azul vibrante como ejemplo. */
+  --color-accent: #3b82f6; /* Azul */
+}
+
+/* En modo oscuro, podemos usar una versión más clara del mismo color */
+.dark {
+  --color-accent: #60a5fa;
+}
+
+.text-accent-color {
+  color: var(--color-accent);
+}
